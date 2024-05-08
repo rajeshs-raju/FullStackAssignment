@@ -2,6 +2,8 @@ const express = require('express');
 const mysql = require('mysql');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+
 
 const app = express();
 const port = 3000;
@@ -22,26 +24,40 @@ connection.connect((err) => {
 
 app.use(bodyParser.json());
 
+// Secret key for JWT
+const JWT_SECRET = 'fitnesstracker!!';
 
-app.post('/register', async (req, res) => {
-  const { username, password, dob, gender, fitness_goals, height, weight, preferred_workout_types, fitness_level } = req.body;
 
-  // To encrypt and store the password in db
-  const hashedPassword = await bcrypt.hash(password, 10);
+  // Login endpoint
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body;
 
-  const query = `INSERT INTO users (username, password, dob, gender, fitness_goals, height, weight, preferred_workout_types, fitness_level) 
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-  connection.query(query, [username, hashedPassword, dob, gender, fitness_goals, height, weight, preferred_workout_types, fitness_level], (err, results) => {
+  // Fetch user from the database based on username
+  const query = `SELECT * FROM users WHERE username = ?`;
+  connection.query(query, [username], async (err, results) => {
     if (err) {
-      console.error('Error registering user:', err);
-      res.status(500).json({ error: 'An error occurred while registering user' });
-    } else {
-      console.log('User registered successfully');
-      res.status(200).json({ message: 'User registered successfully' });
+      console.error('Error finding user:', err);
+      return res.status(500).json({ error: 'An error occurred while finding user' });
     }
+
+    if (results.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = results[0];
+
+    // Check if the provided password matches the hashed password in the database
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ error: 'Invalid username or password' });
+    }
+
+    // Create JWT token
+    const token = jwt.sign({ username: user.username, userId: user.id }, JWT_SECRET, { expiresIn: '1h' });
+
+    res.status(200).json({ token: token });
   });
 });
-
 
 //list all the user details
 app.get('/users', async (req, res) => {
@@ -70,6 +86,45 @@ app.get('/users/:username', async (req, res) => {
     res.status(500).json({ error: 'An error occurred while fetching user details' });
   }
 });
+
+
+//update user details
+app.put('/update/:username', (req, res) => {
+  const { username } = req.params;
+  const updatedUser = req.body;
+  const sql = `SELECT id FROM users WHERE username = '${username}';`;
+
+  console.log("Query is " , sql);
+
+  connection.query(sql, (err, results) => {
+    if (err) {
+      console.error("Error executing SQL statement:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const userID = results[0].id;
+
+    console.log("User ID is ", userID);
+
+    const updateQuery = `UPDATE users SET ? WHERE id = ?`;
+
+    connection.query(updateQuery, [updatedUser, userID], (err, result) => {
+      if (err) {
+        console.error('Error updating user details:', err);
+        res.status(500).json({ error: 'Internal server error' });
+        return;
+      }
+      console.log('User details updated successfully');
+      res.status(200).json({ message: 'User details updated successfully' });
+    });
+
+  });
+});
+
 
 //function to get all the user details from database
 async function getAllUsersFromDatabase() {
