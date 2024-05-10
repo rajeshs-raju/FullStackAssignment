@@ -38,3 +38,8 @@ Get User's fitness activity
 Remove User
 
 ![alt text](image-4.png)
+
+
+Home Page
+
+![alt text](image-7.png)

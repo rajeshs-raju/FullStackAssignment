@@ -3,7 +3,7 @@ const mysql = require('mysql');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-
+const path = require('path');
 
 const app = express();
 const port = 3000;
@@ -27,6 +27,11 @@ app.use(bodyParser.json());
 // Secret key for JWT
 const JWT_SECRET = generateDynamicSecret();
 
+app.get('/FitnessTrackerWebApp', (req, res) => {
+  const htmlFilePath = path.join(__dirname, 'html', 'index.html');
+  res.sendFile(htmlFilePath);
+});
+
 //user registration
 app.post('/register', async(req, res) => {
   const { username, password, dob, gender, fitness_goals, height, weight, preferred_workout_types, fitness_level } = req.body;
@@ -45,7 +50,6 @@ app.post('/register', async(req, res) => {
     }
   });
 });
-
 
   // Login endpoint
 app.post('/login', async (req, res) => {
