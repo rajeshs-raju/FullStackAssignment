@@ -11,7 +11,7 @@ const port = 3000;
 const connection = mysql.createConnection({
   host: 'localhost',
   user: 'root',
-  password: '<sqlPassword>',
+  password: '<UPDATE-YOUR-MYSQL-DB-PASSWORD-HERE>',
   database: 'FitnessTracker'
 });
 
@@ -25,7 +25,26 @@ connection.connect((err) => {
 app.use(bodyParser.json());
 
 // Secret key for JWT
-const JWT_SECRET = 'fitnesstracker!!';
+const JWT_SECRET = generateDynamicSecret();
+
+//user registration
+app.post('/register', async(req, res) => {
+  const { username, password, dob, gender, fitness_goals, height, weight, preferred_workout_types, fitness_level } = req.body;
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  const query = `INSERT INTO users (username, password, dob, gender, fitness_goals, height, weight, preferred_workout_types, fitness_level)
+ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  connection.query(query, [username, hashedPassword, dob, gender, fitness_goals, height, weight, preferred_workout_types, fitness_level], (err, results) => {
+    if (err) {
+      console.error('Error registering user:', err);
+      res.status(500).json({ error: 'An error occurred while registering user' });
+    } else {
+      console.log('User registered successfully');
+      res.status(200).json({ message: 'User registered successfully' });
+    }
+  });
+});
 
 
   // Login endpoint
@@ -60,7 +79,7 @@ app.post('/login', async (req, res) => {
 });
 
 //list all the user details
-app.get('/users', async (req, res) => {
+app.get('/users', verifyToken, async (req, res) => {
   try {
     // Retrieve all users from the database
     const users = await getAllUsersFromDatabase();
@@ -72,7 +91,7 @@ app.get('/users', async (req, res) => {
 });
 
 // Endpoint to get details of a particular user by username
-app.get('/users/:username', async (req, res) => {
+app.get('/users/:username',verifyToken, async (req, res) => {
   const { username } = req.params;
 
   try {
@@ -88,8 +107,9 @@ app.get('/users/:username', async (req, res) => {
 });
 
 
+
 //update user details
-app.put('/update/:username', (req, res) => {
+app.put('/update/:username',verifyToken, (req, res) => {
   const { username } = req.params;
   const updatedUser = req.body;
   const sql = `SELECT id FROM users WHERE username = '${username}';`;
@@ -125,6 +145,55 @@ app.put('/update/:username', (req, res) => {
   });
 });
 
+//remove user from db
+app.delete('/removeUser/:username', verifyToken, (req, res) => {
+  const { username } = req.params;
+  const userIDSQL = `SELECT id FROM users WHERE username = '${username}';`;
+
+  connection.query(userIDSQL, (err, results) => {
+    if (err) {
+      console.error("Error executing SQL statement:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const userID = results[0].id;
+
+    console.log("User ID is ", userID);
+
+    const deleteQuery = 'DELETE FROM users WHERE id = ?';
+
+    connection.query(deleteQuery, [userID], (err, result) => {
+      if (err) {
+        console.error('Error removing the user from db:', err);
+        res.status(500).json({ error: 'Internal server error' });
+        return;
+      }
+      console.log('User removed successfully');
+      res.status(200).json({ message: 'User removed successfully' });
+    });
+  });
+});
+
+//Validate the token for secure login
+function verifyToken(req, res, next) {
+  const token = req.headers.authorization;
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access denied. Token not provided.' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    req.user = decoded;
+    next();
+  });
+}
 
 //function to get all the user details from database
 async function getAllUsersFromDatabase() {
@@ -160,6 +229,13 @@ async function getGivenUserDetails(username) {
       }
     });
   });
+}
+
+function generateDynamicSecret() {
+  const randomString = Math.random().toString(20).substring(2, 10);
+  const prefix = 'fitnessTrackerTest_';
+  const dynamicSecret = prefix + randomString;
+  return dynamicSecret;
 }
 
 
