@@ -106,8 +106,6 @@ app.get('/users/:username',verifyToken, async (req, res) => {
   }
 });
 
-
-
 //update user details
 app.put('/update/:username',verifyToken, (req, res) => {
   const { username } = req.params;
@@ -144,6 +142,42 @@ app.put('/update/:username',verifyToken, (req, res) => {
 
   });
 });
+
+//user Activity Logging
+app.post('/activityLogging/:userName',verifyToken, (req, res) => {
+  const userName = req.params.userName;
+  const activityData = req.body;
+
+  const sql = "INSERT INTO activity_logs (username, activity_type, duration_minutes, distance_km, intensity, calories_burned, log_date) VALUES (?, ?, ?, ?, ?, ?, ?)";
+
+  const values = [userName, activityData.activity_type, activityData.duration_minutes, activityData.distance_km, activityData.intensity, activityData.calories_burned, activityData.log_date];
+
+  connection.query(sql, values, (error, results, fields) => {
+    if (error) {
+      console.error('Error inserting activity log:', error);
+      res.status(500).json({ error: 'Unable to update your activity log' });
+    } else {
+      res.status(201).json({ message: "Activity successfully logged !!"});
+    }
+  });
+});
+
+//get user's activity logging
+app.get('/getActivityLogging/:userName', verifyToken, (req, res) => {
+  const userName = req.params.userName;
+
+  const sql = "SELECT * FROM activity_logs WHERE username = ?";
+
+  connection.query(sql, [userName], (error, results, fields) => {
+    if (error) {
+      console.error('Error retrieving activity logs:', error);
+      res.status(500).json({ error: 'Error retrieving activity logs' });
+    } else {
+      res.status(200).json(results);
+    }
+  });
+});
+
 
 //remove user from db
 app.delete('/removeUser/:username', verifyToken, (req, res) => {
