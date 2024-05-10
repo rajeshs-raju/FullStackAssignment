@@ -24,3 +24,7 @@ Secure login
 Invalid password
 
 ![image](https://github.com/rajeshs-raju/FullStackAssignment/assets/21701072/1af1d4ef-1ce8-4989-8cd1-96010fe8670f)
+
+Remove User
+
+![alt text](image-4.png)
